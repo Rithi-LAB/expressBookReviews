@@ -1,11 +1,12 @@
 const express = require('express');
 const session = require('express-session');
+const jwt = require('jsonwebtoken');
 let books = require("./booksdb.js");
 let isValid = require("./auth_users.js").isValid;
 let authenticatedUser = require("./auth_users.js").authenticatedUser;
 let users = require("./auth_users.js").users;
 const public_users = express.Router();
-
+const { authenticated } = require('./auth_users.js');
 
 public_users.post("/register", (req,res) => {
     const username = req.body.username;
@@ -23,35 +24,17 @@ public_users.post("/register", (req,res) => {
     }
 });
 
-app.use(session(
-    {secret:"fingerpint"},
-    resave=true,
-    saveUninitialized=true));
-
-// Login endpoint
-public_users.post("/login", (req, res) => {
-    const username = req.body.username;
-    const password = req.body.password;
-
-    if (!username || !password) {
-        return res.status(404).json({ message: "Error logging in" });
-    }
-    // Authenticate user
-    if (authenticatedUser(username, password)) {
-        // Generate JWT access token
-        let accessToken = jwt.sign({
-            data: password
-        }, 'access', { expiresIn: 60 * 60 });
-
-        // Store access token and username in session
-        req.session.authorization = {
-            accessToken, username
-        }
-        return res.status(200).send("User successfully logged in");
-    } else {
-        return res.status(208).json({ message: "Invalid Login. Check username and password" });
-    }
+public_users.get("/users", (req, res) => {
+    res.send(users);  // Send the 'users' array as a JSON response
 });
+public_users.use(express.json());
+
+public_users.use(session(
+    {secret:"fingerpint",
+    resave:true,
+    saveUninitialized:true}));
+
+public_users.use('/auth', authenticated);
 
 // Get the book list available in the shop
 public_users.get('/',function (req, res) {
@@ -61,7 +44,7 @@ public_users.get('/',function (req, res) {
 // Get book details based on ISBN
 public_users.get('/isbn/:isbn',function (req, res) {
      const isbn = req.params.isbn;
-     const book = book[isbn];
+     const book = books[isbn];
      
      if(book){
         res.send(book);
